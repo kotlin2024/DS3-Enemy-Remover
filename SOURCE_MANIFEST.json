@@ -1,0 +1,28 @@
+{
+  "application_version": "0.2.14",
+  "nexus_mod_id": 2391,
+  "files": {
+    "app.py": "bd6066cd805e46ad09ec3aced3f06f32382d860a267c1a28312aa05c68510c44",
+    "desktop.py": "4aa9ff1639a13631841bc4f99c246387a0baeea147e0dc90fae308db7108eade",
+    "memory.py": "5378085a82605f53a74baa868e5d81dd5be6b6b26e7e7370afe0203789d1a153",
+    "trainer.py": "30a0a516ca920392bebd230beb561735f0260bc7563c6d6e4d11ae9d6958df4a",
+    "probe.py": "4286b0718c22960181d2b388b121cf6023d0ed5214dfbf337e4d5d4cd4a9b170",
+    "catalog.py": "6b953eb976e98bacf40a8eee4db9687a4ee7ddabe7d5e2067bee4ea74cbac6d6",
+    "msb3.py": "029f96b05d1bb7fe3107c21ab9881471726beb64b1cbf79e82153190931506df",
+    "verify.py": "f459b5c04701ea20155a9cf11bcc8828e77701f9317afb8629ce2edccee40e0d",
+    "localization.py": "d619ff269318dabdd816c03fba5c39480b5e6ee1719fe00af8a99f492e694b2b",
+    "ui.html": "0bec5d729ccc13403a7efc23e9c6c741fa9cbd58cc5dda0b34db6528ca50711a",
+    "ui.js": "023862ccb9f3edcf69be60b6ef5faa5f856dbd08cdad47e9a394ea324a890213",
+    "i18n.js": "4d35e600a8b3d4db04f40da0599a92a969f70b4821e880c58d5c38a63695c67d",
+    "placements.json": "7050e3df944e1ed68f4eee5366b97e8c700bc7ab3cf5d199c66d0354cf553da7",
+    "versions.json": "8b826135f354c2715e1e73afe198c242bd7738169f35cafa8e78c0969645b114",
+    "supported_maps.json": "db0b2d78860fa5b2c592f6a752978b7c57cada5dc421a28a562f9f388ee0dc15",
+    "NAME_SOURCES.md": "e124411e65c6407f702ae05f54c05b936ee2ad8bcfe918e6d92816244f6bb109",
+    "THIRD_PARTY_NOTICES.txt": "ed187612552bb5b3a9c59d4428fb944f0b89e61c957a3b863d7e09a35db32938",
+    "requirements-desktop.txt": "cb10a3369dd3100fc848520292a640f17afb3245530a5df25e1458ca2d8a3c0b",
+    "DS3-Enemy-Trainer.spec": "c208333e997e2fd1ed0927e78671aece7ac6a7767c82c5eab4ee209c6af604b5",
+    "assets/mascots.png": "68be895ffa71d5374616f6a690a9419764ce1ca02886a72ddbc2029b6cdeab79",
+    "assets/app-icon.png": "17adbfc09659548cf8dee9222965b5e4556169525384be7d9a1e8ec936093f64",
+    "assets/app-icon.ico": "ebef7498175cfb42638778cab4b432072b00e5ad35e1f982258a627c133a4f24"
+  }
+}

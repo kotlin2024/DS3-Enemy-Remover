@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+runtime/
+webview-cache/
+selection.json
+settings.json
+session.json
+startup-error.log
+desktop-smoke.json
+desktop-lifecycle.json

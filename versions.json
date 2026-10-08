@@ -1,0 +1,20 @@
+{
+  "profiles": [
+    {
+      "sha256": "f6469c974f3a3aff48d08b7ef0807ababf544c9d828784b7f7be0c6b7d51328b",
+      "version": "1.15.0.0",
+      "world_rva": 74878584,
+      "verified_in_game": false,
+      "modules_offset": 8080,
+      "flags_offset": 7912,
+      "enumeration_offsets": [
+        464,
+        488
+      ],
+      "list_stride": 56,
+      "source": "SilkySouls3 Offsets and TGA Kill All Mobs/Swap entries",
+      "loading_rva": 74760944,
+      "fade_rva": 74957160
+    }
+  ]
+}
