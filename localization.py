@@ -199,6 +199,13 @@ EN_MAPS={
  'm54_00_00_00':'Undead Match / Round Plaza',
 }
 MESSAGES={
+ '소울은 0부터 999999999까지의 정수로 입력해 주세요.':'Enter a whole number from 0 to 999999999.',
+ '소울 변경은 캐릭터 로딩이 끝난 뒤 사용할 수 있습니다.':'Soul changes are available after your character finishes loading.',
+ '소울 정보를 확인할 수 없습니다.':'Could not verify the soul balance.',
+ '소울 적용을 확인하지 못했습니다. 현재 소울을 확인해 주세요.':'Could not confirm the change. Check your current soul balance.',
+ '게임 종류를 변경했습니다. 몹 제거 시작을 눌러 주세요.':'Game profile changed. Click Start enemy removal to continue.',
+ '실행 중인 게임과 탭이 다릅니다. 맞는 게임 탭을 선택해 주세요.':'The tab does not match the running game. Choose the matching game tab.',
+
  '제거 완료':'Removal complete',
  '현재 불러온 제거 대상 없음':'No removal targets currently loaded',
  '제거할 몬스터를 선택하세요.':'Select enemies to remove.',

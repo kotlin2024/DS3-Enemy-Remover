@@ -4,7 +4,10 @@ from ctypes import wintypes as w
 import hashlib
 from pathlib import Path
 import struct
+import configparser
+import time
 from probe import kernel, entries, ProcessEntry, ModuleEntry, read
+from mod_detection import process_modengine_config, modengine2_variant
 
 
 class NotReady(RuntimeError):
@@ -37,9 +40,11 @@ class GameMemory:
             raise NotReady('지원 지문과 다른 게임 실행 파일입니다. 메모리를 변경하지 않습니다.')
         # Loader presence is informational, not a blanket compatibility veto.
         proxies = {'dinput8.dll','dxgi.dll','winmm.dll','version.dll'}
-        self.modded = any(m.name.lower() in proxies and Path(m.path).parent == self.path.parent
+        self.modded = any(m.name.lower()=='modengine2.dll' or (m.name.lower() in proxies and Path(m.path).parent == self.path.parent)
                           for m in modules)
         self.modded |= any((self.path.parent/n).exists() for n in ('modengine.ini','HoodiePatcher.dll'))
+        self.game_variant = self.detect_variant(modules)
+        self.variant_checked_at = time.monotonic()
         self.handle = self.k.OpenProcess(0x1010,False,self.pid)
         if not self.handle:
             raise c.WinError(c.get_last_error())
@@ -47,6 +52,44 @@ class GameMemory:
         self.k.WriteProcessMemory.restype = w.BOOL
         self.k.GetExitCodeProcess.argtypes = [w.HANDLE,c.POINTER(w.DWORD)]
         self.k.GetExitCodeProcess.restype = w.BOOL
+
+    def detect_variant(self, modules):
+        if any(m.name.lower()=='modengine2.dll' for m in modules):
+            # The launcher passes the selected TOML path to the game process.
+            # A leftover legacy INI must not override this evidence.
+            return modengine2_variant(process_modengine_config(self.k,self.pid))
+        # Installed folders alone do not tell us which mod is active. Inspect
+        # the loader's configured override only when its proxy is loaded.
+        loaded = any(m.name.lower() in ('dinput8.dll','dxgi.dll','winmm.dll','version.dll')
+                     and Path(m.path).parent == self.path.parent for m in modules)
+        if not loaded: return 'vanilla'
+        config = configparser.ConfigParser(interpolation=None,strict=False)
+        try:
+            config.read(self.path.parent/'modengine.ini',encoding='utf-8-sig')
+            for section in config.sections():
+                if config.get(section,'useModOverrideDirectory',fallback='0').strip() != '1': continue
+                folder = config.get(section,'modOverrideDirectory',fallback='').lower()
+                if 'convergence' in folder: return 'convergence'
+                if 'cinders' in folder: return 'cinders'
+        except (OSError,configparser.Error,UnicodeError): pass
+        return 'unknown'
+
+    def refresh_variant(self, force=False):
+        # Steam can start the executable before its mod proxy finishes loading.
+        # Re-read module/config evidence instead of retaining the startup result.
+        now = time.monotonic()
+        if not force and now-self.variant_checked_at < 2.0:
+            return
+        self.variant_checked_at = now
+        try:
+            modules = list(entries(self.k,0x18,self.pid,ModuleEntry,'Module32FirstW','Module32NextW'))
+        except OSError:
+            return  # Retain the last result if the process is transitioning.
+        self.game_variant = self.detect_variant(modules)
+        proxies = {'dinput8.dll','dxgi.dll','winmm.dll','version.dll'}
+        self.modded = any(m.name.lower()=='modengine2.dll' or (m.name.lower() in proxies and Path(m.path).parent == self.path.parent)
+                          for m in modules)
+        self.modded |= any((self.path.parent/n).exists() for n in ('modengine.ini','HoodiePatcher.dll'))
 
     def close(self):
         if self.handle:
@@ -102,6 +145,37 @@ class GameMemory:
         if not fade: return False
         system=self.ptr(fade+8)
         return bool(system and self.integer(system+0x2ec)==0)
+
+    def soul_snapshot(self):
+        if not self.alive() or not self.playable():
+            raise NotReady('소울 변경은 캐릭터 로딩이 끝난 뒤 사용할 수 있습니다.')
+        context = self.context()
+        manager = self.ptr(self.base+self.profile['game_data_rva'])
+        data = self.ptr(manager+self.profile['player_game_data_offset'])
+        address = data+self.profile['souls_offset']
+        value = self.integer(address)
+        if not 0 <= value <= 999999999:
+            raise NotReady('소울 정보를 확인할 수 없습니다.')
+        if context != self.context() or not self.playable():
+            raise NotReady('소울 변경은 캐릭터 로딩이 끝난 뒤 사용할 수 있습니다.')
+        return (context,manager,data,address),value
+
+    def set_souls(self, value):
+        if type(value) is not int or not 0 <= value <= 999999999:
+            raise ValueError('소울은 0부터 999999999까지의 정수로 입력해 주세요.')
+        identity,_ = self.soul_snapshot()
+        self.writable()
+        fresh,_ = self.soul_snapshot()
+        if fresh != identity or not self.playable():
+            raise NotReady('소울 변경은 캐릭터 로딩이 끝난 뒤 사용할 수 있습니다.')
+        data = c.c_int32(value)
+        count = c.c_size_t()
+        if not self.k.WriteProcessMemory(self.handle,identity[3],c.byref(data),4,c.byref(count)) or count.value != 4:
+            raise c.WinError(c.get_last_error())
+        verified,current = self.soul_snapshot()
+        if verified != identity or current != value:
+            raise NotReady('소울 적용을 확인하지 못했습니다. 현재 소울을 확인해 주세요.')
+        return current
 
     def identity(self, address):
         modules = self.ptr(address+self.profile['modules_offset'])

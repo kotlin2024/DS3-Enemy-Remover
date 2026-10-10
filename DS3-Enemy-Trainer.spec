@@ -5,7 +5,7 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[],
-    datas=[('ui.html', '.'), ('ui.js', '.'), ('i18n.js', '.'), ('placements.json', '.'), ('versions.json', '.'), ('assets/mascots.png', 'assets'), ('assets/app-icon.ico', 'assets')],
+    datas=[('ui.html', '.'), ('ui.js', '.'), ('i18n.js', '.'), ('placements.json', '.'), ('placements_convergence.json', '.'), ('placements_cinders.json', '.'), ('versions.json', '.'), ('assets/mascots.png', 'assets'), ('assets/mascots_convergence.png', 'assets'), ('assets/mascots_cinders.png', 'assets'), ('assets/app-icon.ico', 'assets')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

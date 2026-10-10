@@ -86,8 +86,8 @@ def main():
             if self.path == '/':
                 page = (root/'ui.html').read_text('utf-8').replace('__TOKEN__',token)
                 return self.respond(200,page.encode('utf-8'),'text/html; charset=utf-8')
-            if self.path == '/assets/mascots.png':
-                return self.respond(200,(root/'assets'/'mascots.png').read_bytes(),'image/png')
+            if self.path in ('/assets/mascots.png', '/assets/mascots_convergence.png', '/assets/mascots_cinders.png'):
+                return self.respond(200,(root/self.path[1:]).read_bytes(),'image/png')
             if self.path in ('/i18n.js','/ui.js'):
                 return self.respond(200,(root/self.path[1:]).read_bytes(),'text/javascript; charset=utf-8')
             if self.path == '/api/state' and self.valid(True):
@@ -105,13 +105,18 @@ def main():
                 if not isinstance(body,dict):
                     raise ValueError('잘못된 요청입니다.')
                 if self.path == '/api/selection':
-                    controller.select(body.get('selection'))
+                    controller.select(body.get('selection'),body.get('variant'))
                 elif self.path == '/api/language':
                     controller.set_language(body.get('language'))
                 elif self.path == '/api/mode':
                     controller.set_mode(body.get('mode'))
+                elif self.path == '/api/variant':
+                    controller.set_variant(body.get('variant'))
                 elif self.path == '/api/start':
                     controller.start(body.get('offline'),body.get('experimental'),body.get('mod_warning_ack'))
+                elif self.path == '/api/souls':
+                    value=controller.apply_souls(body.get('value'),body.get('offline'))
+                    return self.respond(200,{'ok':True,'souls':value})
                 elif self.path == '/api/pause':
                     controller.pause()
                 elif self.path == '/api/quit':

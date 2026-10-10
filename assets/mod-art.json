@@ -1,0 +1,246 @@
+{
+  "convergence": {
+    "c1072": {
+      "icon": 0,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1103": {
+      "icon": 1,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1108": {
+      "icon": 2,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1110": {
+      "icon": 3,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1181": {
+      "icon": 4,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1231": {
+      "icon": 5,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1301": {
+      "icon": 6,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1302": {
+      "icon": 7,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1411": {
+      "icon": 8,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c1447": {
+      "icon": 9,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c2031": {
+      "icon": 10,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c2255": {
+      "icon": 11,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c3041": {
+      "icon": 12,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c3101": {
+      "icon": 13,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c3121": {
+      "icon": 14,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c3142": {
+      "icon": 15,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c5011": {
+      "icon": 16,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c5012": {
+      "icon": 17,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c5013": {
+      "icon": 18,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c5111": {
+      "icon": 19,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c5145": {
+      "icon": 20,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c5261": {
+      "icon": 21,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c5281": {
+      "icon": 22,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c6021": {
+      "icon": 23,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c6101": {
+      "icon": 24,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c6261": {
+      "icon": 25,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    },
+    "c6262": {
+      "icon": 26,
+      "icon_atlas": "convergence",
+      "art_kind": "mascot"
+    }
+  },
+  "cinders": {
+    "c1010": {
+      "icon": 0,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c1020": {
+      "icon": 1,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c1030": {
+      "icon": 2,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c1040": {
+      "icon": 3,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c1060": {
+      "icon": 4,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7500": {
+      "icon": 5,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7510": {
+      "icon": 6,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7520": {
+      "icon": 7,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7550": {
+      "icon": 8,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7560": {
+      "icon": 9,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7562": {
+      "icon": 10,
+      "icon_atlas": "cinders",
+      "art_kind": "helper"
+    },
+    "c7570": {
+      "icon": 11,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7571": {
+      "icon": 12,
+      "icon_atlas": "cinders",
+      "art_kind": "helper"
+    },
+    "c7580": {
+      "icon": 13,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7610": {
+      "icon": 14,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7620": {
+      "icon": 15,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7640": {
+      "icon": 16,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7660": {
+      "icon": 17,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7670": {
+      "icon": 18,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    },
+    "c7671": {
+      "icon": 19,
+      "icon_atlas": "cinders",
+      "art_kind": "helper"
+    },
+    "c7680": {
+      "icon": 20,
+      "icon_atlas": "cinders",
+      "art_kind": "mascot"
+    }
+  }
+}

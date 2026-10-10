@@ -17,6 +17,11 @@ class Controller:
         self.home, self.resources = Path(home),Path(resources)
         self.home.mkdir(parents=True,exist_ok=True)
         self.manifest = json.loads((self.resources/'placements.json').read_text('utf-8'))
+        self.datasets = {'vanilla': self.manifest}
+        for variant in ('convergence', 'cinders'):
+            path = self.resources/f'placements_{variant}.json'
+            if path.exists(): self.datasets[variant] = json.loads(path.read_text('utf-8'))
+        self.game_variant = 'vanilla'
         self.profiles = json.loads((self.resources/'versions.json').read_text('utf-8'))['profiles']
         self.adapter = adapter
         self.clock=clock
@@ -34,6 +39,9 @@ class Controller:
                 self.language = settings['language']
             if settings.get('removal_mode') in ('all','placements'):
                 self.removal_mode = settings['removal_mode']
+            if settings.get('game_variant') in self.datasets:
+                self.game_variant = settings['game_variant']
+        self.manifest = self.datasets[self.game_variant]
         self.active = False
         self.experimental = False
         self.offline = False
@@ -41,16 +49,28 @@ class Controller:
         self.saved = {}
         self.context = None
         self.selection = set()
+        self.selections = {v: [] for v in self.datasets}
         self.status = '게임 실행을 기다리고 있습니다.'
         self.current = Counter()
         self.attempts = 0
         self.removal_complete=False
         self.target_count=0
         self.applied_count=0
+        self.souls_current=None
+        self.souls_ready=False
+        self.souls_context=None
+        self.souls_since=None
         path = self.home/'selection.json'
         if path.exists():
             data = json.loads(path.read_text('utf-8'))
-            self.selection = self.validate_selection(data.get('selection',[]))
+            if isinstance(data.get('selections'), dict):
+                self.selections.update({k:v for k,v in data['selections'].items() if k in self.datasets})
+            else:
+                self.selections['vanilla'] = data.get('selection',[])
+            self.selection = self.validate_selection(self.selections[self.game_variant])
+        self.build_policy()
+
+    def build_policy(self):
         self.policy = {}
         for map_id, m in self.manifest['maps'].items():
             grouped = {}
@@ -76,8 +96,27 @@ class Controller:
     def save_settings(self, language, mode):
         path=self.home/'settings.json'
         temp=path.with_suffix('.tmp')
-        temp.write_text(json.dumps({'language':language,'removal_mode':mode}),encoding='utf-8')
+        temp.write_text(json.dumps({'language':language,'removal_mode':mode,'game_variant':self.game_variant}),encoding='utf-8')
         temp.replace(path)
+
+    def set_variant(self, variant):
+        if variant not in self.datasets: raise ValueError('Invalid game profile.')
+        with self.lock:
+            if variant == self.game_variant: return
+            self.pause()  # Restore under the OLD policy before changing datasets.
+            self.game_variant = variant
+            self.manifest = self.datasets[variant]
+            self.selection = self.validate_selection(self.selections[variant])
+            self.build_policy()
+            self.mod_warning_ack = False
+            self.ready_context = self.ready_since = None
+            self.target_count = self.applied_count = 0
+            self.save_settings(self.language, self.removal_mode)
+            self.status = '게임 종류를 변경했습니다. 몹 제거 시작을 눌러 주세요.'
+
+    def variant_matches(self):
+        detected = getattr(self.memory, 'game_variant', None)
+        return detected not in self.datasets or detected == self.game_variant
 
     def set_mode(self, mode):
         if mode not in ('all','placements'):
@@ -93,13 +132,17 @@ class Controller:
         return bool(self.removal_mode=='all' and self.memory and
                     getattr(self.memory,'modded',False) and not self.mod_warning_ack)
 
-    def select(self, values):
-        selection = self.validate_selection(values)
+    def select(self, values, variant=None):
         with self.lock:
+            if variant is not None and variant != self.game_variant:
+                raise ValueError('Game profile changed. Please select enemies again.')
+            selection = self.validate_selection(values)
             path = self.home/'selection.json'
             temp = path.with_suffix('.tmp')
-            temp.write_text(json.dumps({'selection':sorted(selection)},ensure_ascii=False),encoding='utf-8')
+            selections = dict(self.selections, **{self.game_variant: sorted(selection)})
+            temp.write_text(json.dumps({'selection':sorted(selection),'selections':selections},ensure_ascii=False),encoding='utf-8')
             temp.replace(path)
+            self.selections = selections
             self.selection = selection
             self.removal_complete=False
             if self.active and self.experimental:
@@ -108,6 +151,7 @@ class Controller:
     def allowed(self, identity, context):
         row=self.manifest['catalog'].get(identity[1])
         if identity[0]==context[1] or not row or row['category']=='보호 대상': return False
+        if identity[2] in self.manifest['maps'].get(context[2],{}).get('protected_entities',[]): return False
         placement=self.policy.get(context[2],{}).get((identity[1],identity[2]))
         if placement is False: return False  # Keep known boss/NPC placements excluded.
         return self.removal_mode=='all' or placement is True
@@ -116,6 +160,10 @@ class Controller:
         if offline is not True:
             raise ValueError('게임의 오프라인 설정을 확인해 주세요.')
         with self.lock:
+            if self.memory and hasattr(self.memory, 'refresh_variant'):
+                self.memory.refresh_variant(force=True)
+            if not self.variant_matches():
+                raise ValueError('실행 중인 게임과 탭이 다릅니다. 맞는 게임 탭을 선택해 주세요.')
             if experimental is True and self.warning_required():
                 if mod_warning_ack is not True:
                     raise ValueError('모드 주의사항을 확인한 뒤 몹 제거를 시작해 주세요.')
@@ -128,6 +176,24 @@ class Controller:
             self.restore()
             self.status='일시중지 · 가능한 개체를 복원했습니다.'
             self.removal_complete=False
+
+    def apply_souls(self, value, offline):
+        if type(value) is not int or not 0 <= value <= 999999999:
+            raise ValueError('소울은 0부터 999999999까지의 정수로 입력해 주세요.')
+        if offline is not True:
+            raise ValueError('게임의 오프라인 설정을 확인해 주세요.')
+        with self.lock:
+            if not self.memory or not self.souls_ready:
+                raise NotReady('소울 변경은 캐릭터 로딩이 끝난 뒤 사용할 수 있습니다.')
+            self.memory.refresh_variant(force=True)
+            if not self.variant_matches():
+                raise ValueError('실행 중인 게임과 탭이 다릅니다. 맞는 게임 탭을 선택해 주세요.')
+            identity,_ = self.memory.soul_snapshot()
+            if identity != self.souls_context:
+                self.souls_ready=False
+                raise NotReady('소울 변경은 캐릭터 로딩이 끝난 뒤 사용할 수 있습니다.')
+            self.souls_current=self.memory.set_souls(value)
+            return self.souls_current
 
     def restore_one(self, identity, original, context):
         if not self.memory.validate(identity,context):
@@ -150,23 +216,42 @@ class Controller:
 
     def tick(self):
         with self.lock:
+            self.souls_current=None
+            self.souls_ready=False
             self.removal_complete=False
             self.target_count=0
             self.applied_count=0
             if self.memory and not self.memory.alive():
+                self.souls_context=None
+                self.souls_since=None
                 self.memory.close()
                 self.memory = None
                 self.saved.clear()
                 self.context = None
             if not self.memory:
                 self.memory = self.adapter(self.profiles)
+            if hasattr(self.memory, 'refresh_variant'):
+                self.memory.refresh_variant()
             if not self.memory.playable():
+                self.souls_context=None
+                self.souls_since=None
                 self.restore()
                 self.ready_context=None
                 self.ready_since=None
                 self.current.clear()
                 self.status='로딩 중 · 몹 제거를 잠시 멈춥니다.'
                 return
+            if hasattr(self.memory,'soul_snapshot'):
+                try:
+                    identity,value=self.memory.soul_snapshot()
+                    self.souls_current=value
+                    if identity != self.souls_context:
+                        self.souls_context=identity
+                        self.souls_since=self.clock()
+                    self.souls_ready=self.clock()-self.souls_since >= 1.0 and self.variant_matches()
+                except (OSError,ValueError,KeyError,NotReady):
+                    self.souls_context=None
+                    self.souls_since=None
             context, identities = self.memory.snapshot()
             if context != self.context:
                 self.saved.clear()  # Never write to objects from the previous map/lifetime.
@@ -176,6 +261,11 @@ class Controller:
             for identity in list(self.saved):
                 if identity not in live:
                     del self.saved[identity]
+            if not self.variant_matches():
+                self.active = False
+                self.restore()
+                self.status = '실행 중인 게임과 탭이 다릅니다. 맞는 게임 탭을 선택해 주세요.'
+                return
             if not self.active:
                 self.status = '연결됨 · 읽기 전용 대기' + (' · 모드 로더 감지(연결 허용)' if getattr(self.memory,'modded',False) else '')
                 return
@@ -250,6 +340,10 @@ class Controller:
                 with self.lock:
                     self.status = str(error) or '게임 상태 변경을 기다리고 있습니다.'
                     self.current.clear()
+                    self.souls_current=None
+                    self.souls_ready=False
+                    self.souls_context=None
+                    self.souls_since=None
                     # If a write failed halfway through, restore only objects
                     # that still pass all identity/context checks.
                     self.restore()
@@ -269,13 +363,17 @@ class Controller:
     def state(self):
         with self.lock:
             return dict(selection=sorted(self.selection), active=self.active, language=self.language,
+                        souls_current=self.souls_current,souls_ready=self.souls_ready,
+                        game_variant=self.game_variant,game_variants=list(self.datasets),
+                        detected_variant=getattr(self.memory,'game_variant','unknown') if self.memory else '',
+                        variant_matches=self.variant_matches(),dataset_version=self.manifest.get('version','DS3 1.15'),
                         removal_enabled=self.experimental or bool(self.memory and self.memory.profile['verified_in_game']),
                         removal_mode=self.removal_mode,mod_detected=bool(self.memory and getattr(self.memory,'modded',False)),
                         mod_warning_required=self.warning_required(),
                         status=translate(self.status,self.language), map=self.context[2] if self.context else '',
                         loaded=dict(self.current), attempts=self.attempts,
                         removal_complete=self.removal_complete,target_count=self.target_count,applied_count=self.applied_count,
-                        verified=False, rows=[dict(r,name=EN_NAMES[r['id']] if self.language=='en' else r['name'],
-                            name_ko=r['name'],name_en=EN_NAMES[r['id']]) for r in self.manifest['catalog'].values()],
-                        maps=[dict(id=k,name=EN_MAPS.get(k,k) if self.language=='en' else v['name'],models=dict(Counter(p['model'] for p in v['placements'])))
+                        verified=False, rows=[dict(r,name=r.get('name_en',EN_NAMES.get(r['id'],r['id'])) if self.language=='en' else r['name'],
+                            name_ko=r['name'],name_en=r.get('name_en',EN_NAMES.get(r['id'],r['id']))) for r in self.manifest['catalog'].values()],
+                        maps=[dict(id=k,name=v.get('name_en',EN_MAPS.get(k,k)) if self.language=='en' else v['name'],models=dict(Counter(p['model'] for p in v['placements'])))
                               for k,v in self.manifest['maps'].items() if v['placements']])

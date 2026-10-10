@@ -6,7 +6,7 @@ import unittest
 from trainer import Controller, MASKS
 from memory import GameMemory, NotReady
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from localization import EN_NAMES, translate
 
 ROOT = Path(__file__).parent
@@ -46,6 +46,158 @@ class FakeMemory:
 
 
 class Tests(unittest.TestCase):
+    def test_modengine2_reads_only_target_process_configuration(self):
+        import os,subprocess,sys
+        from probe import kernel
+        from mod_detection import process_modengine_config
+        config=str(Path(self.temp.name)/'신더 설정.toml')
+        child=subprocess.Popen([sys.executable,'-c','import sys;print("ready",flush=True);sys.stdin.read()'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+                               env=dict(os.environ,MODENGINE_CONFIG=config),creationflags=subprocess.CREATE_NO_WINDOW)
+        try:
+            self.assertEqual(child.stdout.readline().strip(),b'ready')
+            self.assertEqual(process_modengine_config(kernel(),child.pid),config)
+        finally:
+            child.stdin.close();child.wait(timeout=5)
+
+    def test_modengine2_uses_active_config_not_stale_legacy_ini(self):
+        from mod_detection import modengine2_variant
+        folder=Path(self.temp.name)
+        config=folder/'custom-config.toml'
+        config.write_text('[extension.mod_loader]\nenabled=true\nmods=[{enabled=true,name="Cinders",path="Cinders"},{enabled=false,name="The Convergence",path="The Convergence"}]\n',encoding='utf-8')
+        self.assertEqual(modengine2_variant(config),'cinders')
+        (folder/'modengine.ini').write_text('[files]\nuseModOverrideDirectory=1\nmodOverrideDirectory="\\The Convergence"\n',encoding='utf-8')
+        adapter=GameMemory.__new__(GameMemory)
+        adapter.path=folder/'DarkSoulsIII.exe';adapter.k=Mock();adapter.pid=123
+        modules=[SimpleNamespace(name='modengine2.dll',path=str(folder/'modengine2/bin/modengine2.dll'))]
+        with patch('memory.process_modengine_config',return_value=str(config)):
+            self.assertEqual(adapter.detect_variant(modules),'cinders')
+        with patch('memory.process_modengine_config',return_value=None):
+            self.assertEqual(adapter.detect_variant(modules),'unknown')
+        self.assertEqual(adapter.detect_variant([]),'vanilla')
+
+    def test_modengine2_unknown_disabled_malformed_and_conflicting_configs(self):
+        from mod_detection import modengine2_variant
+        config=Path(self.temp.name)/'custom-config.toml'
+        for contents in ('[extension.mod_loader]\nenabled=false\nmods=[{name="Cinders",path="Cinders"}]',
+                         '[extension.mod_loader]\nmods=[{enabled=false,name="Cinders",path="Cinders"}]',
+                         '[extension.mod_loader]\nmods=[{name="Cinders",path="Cinders"},{name="Convergence",path="The Convergence"}]',
+                         'not valid toml',
+                         '[extension.mod_loader]\nmods=[{name="Other Mod",path="mod"}]'):
+            config.write_text(contents,encoding='utf-8')
+            self.assertEqual(modengine2_variant(config),'unknown')
+        self.assertEqual(modengine2_variant(config.parent/'missing.toml'),'unknown')
+        config.write_text('[extension.mod_loader]\nmods=[{name="The Convergence",path="mod"}]',encoding='utf-8')
+        self.assertEqual(modengine2_variant(config),'convergence')
+
+    def prepare_souls(self):
+        self.soul_balance=12345
+        self.soul_identity=(self.m.ctx,0x400000,0x410000,0x410074)
+        def snapshot():
+            if self.m.loading:raise NotReady('loading')
+            return self.soul_identity,self.soul_balance
+        def apply(value):self.soul_balance=value;return value
+        self.m.soul_snapshot=Mock(side_effect=snapshot)
+        self.m.set_souls=Mock(side_effect=apply)
+        self.m.refresh_variant=Mock()
+        self.c.tick();self.now+=2;self.c.tick()
+
+    def test_souls_one_time_independent_of_enemy_removal(self):
+        self.prepare_souls()
+        self.assertFalse(self.c.active)
+        self.assertFalse(self.c.experimental)
+        selected=self.c.selection.copy()
+        self.assertEqual(self.c.apply_souls(1000000,True),1000000)
+        self.assertEqual(self.c.state()['souls_current'],1000000)
+        self.assertEqual(self.c.selection,selected)
+        self.assertEqual(self.m.writes,[])
+        self.soul_balance=999900  # Spending souls must not be undone.
+        self.c.tick()
+        self.assertEqual(self.c.souls_current,999900)
+        self.m.set_souls.assert_called_once_with(1000000)
+        self.c.pause();self.assertEqual(self.soul_balance,999900)
+
+    def test_souls_require_valid_integer_offline_and_stable_character(self):
+        self.prepare_souls()
+        for value in (True,None,'1000000',1.5,-1,1000000000):
+            with self.assertRaises(ValueError):self.c.apply_souls(value,True)
+        with self.assertRaises(ValueError):self.c.apply_souls(1000000,False)
+        self.m.loading=True
+        with self.assertRaises(NotReady):self.c.apply_souls(1000000,True)
+        self.c.tick();self.assertFalse(self.c.souls_ready)
+        self.assertIsNone(self.c.souls_current)
+        self.m.loading=False;self.c.tick()
+        with self.assertRaises(NotReady):self.c.apply_souls(1000000,True)
+        self.now+=2;self.c.tick()
+        self.soul_identity=(self.m.ctx,0x500000,0x510000,0x510074)
+        with self.assertRaises(NotReady):self.c.apply_souls(1000000,True)
+        self.m.set_souls.assert_not_called()
+
+    def test_souls_mismatched_profile_blocks_write(self):
+        self.prepare_souls();self.m.game_variant='cinders'
+        with self.assertRaises(ValueError):self.c.apply_souls(1000000,True)
+        self.m.set_souls.assert_not_called()
+
+    def test_real_soul_adapter_writes_only_balance_and_rechecks_identity(self):
+        import ctypes,struct
+        adapter=GameMemory.__new__(GameMemory)
+        adapter.profile={'game_data_rva':0x1000,'player_game_data_offset':16,'souls_offset':116}
+        adapter.base=0x140000000;adapter.handle=123;adapter.k=Mock()
+        adapter.alive=Mock(return_value=True);adapter.playable=Mock(return_value=True)
+        adapter.context=Mock(return_value=(0x100000,0x110000,'m40_00_00_00'))
+        pointers={adapter.base+0x1000:0x400000,0x400010:0x410000}
+        adapter.ptr=Mock(side_effect=lambda address:pointers[address])
+        values={0x410074:12345,0x410078:54321}
+        adapter.integer=Mock(side_effect=lambda address:values[address])
+        adapter.writable=Mock()
+        writes=[]
+        def write(handle,address,buffer,size,count):
+            writes.append((address,size))
+            values[address]=struct.unpack('<i',ctypes.string_at(buffer,size))[0]
+            count._obj.value=size
+            return True
+        adapter.k.WriteProcessMemory.side_effect=write
+        self.assertEqual(adapter.set_souls(1000000),1000000)
+        self.assertEqual(writes,[(0x410074,4)])
+        self.assertEqual(values[0x410078],54321)
+        # A new character/data block after acquiring the write handle is refused.
+        adapter.writable.side_effect=lambda:pointers.update({0x400010:0x510000})
+        values[0x510074]=222
+        with self.assertRaises(NotReady):adapter.set_souls(50000)
+        self.assertEqual(len(writes),1)
+        self.assertEqual(values[0x510074],222)
+
+    def test_late_steam_mod_loader_refreshes_startup_detection(self):
+        game=Path(self.temp.name)
+        (game/'modengine.ini').write_text('[files]\nuseModOverrideDirectory=1\nmodOverrideDirectory="\\The Convergence"\n',encoding='utf-8')
+        adapter=GameMemory.__new__(GameMemory)
+        adapter.path=game/'DarkSoulsIII.exe'
+        adapter.k=Mock();adapter.pid=123;adapter.variant_checked_at=10.0
+        adapter.game_variant='vanilla';adapter.modded=False
+        modules=[SimpleNamespace(name='DINPUT8.dll',path=str(game/'DINPUT8.dll'))]
+        with patch('memory.entries',return_value=modules) as enumerate_modules, patch('memory.time.monotonic',return_value=11.0):
+            adapter.refresh_variant()
+            enumerate_modules.assert_not_called()
+            self.assertEqual(adapter.game_variant,'vanilla')
+        with patch('memory.entries',return_value=modules),patch('memory.time.monotonic',return_value=12.0):
+            adapter.refresh_variant()
+        self.assertEqual(adapter.game_variant,'convergence')
+        self.assertTrue(adapter.modded)
+        with patch('memory.entries',side_effect=OSError('transition')),patch('memory.time.monotonic',return_value=14.0):
+            adapter.refresh_variant()
+        self.assertEqual(adapter.game_variant,'convergence')
+
+    def test_controller_refreshes_detection_before_mismatch_guard(self):
+        self.c.set_variant('convergence')
+        self.m.game_variant='vanilla'
+        def refresh(force=False): self.m.game_variant='convergence'
+        self.m.refresh_variant=Mock(side_effect=refresh)
+        self.c.tick()
+        self.assertTrue(self.c.variant_matches())
+        self.assertFalse(self.c.active)
+        self.assertEqual(self.m.writes,[])
+        self.c.start(True,True)
+        self.m.refresh_variant.assert_called_with(force=True)
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(dir=ROOT,prefix='test-')
         self.c=Controller(self.temp.name,ROOT,FakeMemory)
@@ -281,6 +433,92 @@ class Tests(unittest.TestCase):
             for p in m['placements']:
                 if p['protected']:
                     self.assertFalse(c.policy[map_id].get((p['model'],p['entity']),False))
+
+    def test_tabs_keep_independent_choices_and_restore_before_switch(self):
+        self.start();self.c.tick()
+        self.c.set_variant('convergence')
+        self.assertFalse(self.c.active)
+        self.assertEqual(self.m.flags[0x200000],bytearray([0x01,0x02]))
+        self.assertEqual(self.c.selection,set())
+        self.c.select(['c1103'])
+        self.c.set_variant('cinders');self.c.select(['c7610'])
+        self.c.set_variant('vanilla')
+        self.assertEqual(self.c.selection,{'c2140'})
+        self.c.set_variant('convergence')
+        self.assertEqual(self.c.selection,{'c1103'})
+        restarted=Controller(self.temp.name,ROOT,FakeMemory)
+        self.assertEqual(restarted.game_variant,'convergence')
+        self.assertEqual(restarted.selection,{'c1103'})
+        restarted.set_variant('cinders')
+        self.assertEqual(restarted.selection,{'c7610'})
+
+    def test_old_selection_migrates_only_to_vanilla(self):
+        self.c.select(['c2140'])
+        (Path(self.temp.name)/'selection.json').write_text(json.dumps({'selection':['c2140']}))
+        c=Controller(self.temp.name,ROOT,FakeMemory)
+        c.set_variant('convergence');self.assertEqual(c.selection,set())
+        c.set_variant('vanilla');self.assertEqual(c.selection,{'c2140'})
+
+    def test_late_selection_request_cannot_cross_tabs(self):
+        self.c.set_variant('convergence')
+        with self.assertRaises(ValueError): self.c.select(['c2140'],'vanilla')
+        self.assertEqual(self.c.selection,set())
+
+    def test_profile_mismatch_blocks_start_and_pauses_existing_removal(self):
+        self.start();self.c.tick()
+        self.m.game_variant='convergence'
+        self.c.tick()
+        self.assertFalse(self.c.active)
+        self.assertEqual(self.m.flags[0x200000],bytearray([0x01,0x02]))
+        with self.assertRaises(ValueError): self.c.start(True,True)
+        self.c.set_variant('convergence')
+        self.assertTrue(self.c.variant_matches())
+
+    def test_convergence_added_cemetery_models_and_new_bosses(self):
+        self.c.set_variant('convergence');self.c.set_mode('all')
+        ctx=(1,2,'m40_00_00_00')
+        for model,entity in [('c1103',69006),('c1108',-1),('c1301',4000040),('c6262',-1),('c3101',4000035)]:
+            self.c.select([model]);self.assertTrue(self.c.allowed((3,model,entity,4),ctx))
+        for model,entity in [('c2255',4000800),('c3060',4000831),('c6021',4000830)]:
+            self.assertFalse(self.c.allowed((3,model,entity,4),ctx))
+
+    def test_mod_policies_exclude_every_registered_protected_placement(self):
+        for variant in ('convergence','cinders'):
+            self.c.set_variant(variant)
+            self.c.set_mode('all')
+            for map_id,m in self.c.manifest['maps'].items():
+                for p in m['placements']:
+                    if p['protected']:
+                        self.assertFalse(self.c.allowed((3,p['model'],p['entity'],4),(1,2,map_id)),(variant,map_id,p))
+
+    def test_unknown_profile_rejected_without_changing_running_state(self):
+        self.start()
+        with self.assertRaises(ValueError): self.c.set_variant('invalid')
+        self.assertTrue(self.c.active)
+        self.assertEqual(self.c.game_variant,'vanilla')
+
+    def test_mod_english_state_includes_new_ids_and_original_labels(self):
+        self.c.set_variant('cinders');self.c.set_language('en')
+        rows={r['id']:r for r in self.c.state()['rows']}
+        self.assertEqual(rows['c7610']['name'],'Red Crystal Lizard')
+        self.assertEqual(rows['c7550']['category'],'보호 대상')
+        self.c.set_variant('convergence')
+        self.assertIn('c1103',{r['id'] for r in self.c.state()['rows']})
+
+    def test_parameterized_mod_boss_calls_resolve_entity_ids(self):
+        import struct
+        from event_policy import boss_references
+        health=struct.pack('<b3xi h2xi',1,0,0,900001)
+        common={123: ([(2003,11,health)],[(0,4,0,4,0)])}
+        events={0: ([(2000,6,struct.pack('<II',123,4000830)),
+                    (2000,0,struct.pack('<III',0,456,4000831))],[]),
+                456: ([(2003,12,bytes(4))],[(0,0,0,4,0)])}
+        self.assertEqual(set(boss_references(events,common)),{4000830,4000831})
+
+    def test_missing_event_arguments_are_not_guessed(self):
+        from event_policy import boss_references
+        events={0: ([(2003,12,bytes(4))],[(0,0,0,4,0)])}
+        self.assertEqual(boss_references(events),{})
 
 
 if __name__=='__main__': unittest.main(verbosity=2)

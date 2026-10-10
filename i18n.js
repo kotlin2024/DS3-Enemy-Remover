@@ -1,5 +1,12 @@
 const labels={
 ko:{
+ soulsTitle:'소울 설정',soulsCurrent:'현재 소울',soulsTarget:'변경할 소울',soulsApply:'소울 적용',soulsApplying:'적용 중…',soulsWaiting:'게임에 연결되고 캐릭터 로딩이 끝나면 사용할 수 있습니다.',soulsOffline:'소울을 변경하려면 오프라인 확인을 체크해 주세요.',soulsReady:'원하는 소지량을 입력한 뒤 소울 적용을 누르세요.',soulsRange:'입력 범위: 0 ~ 999,999,999',soulsInvalid:'소울은 0부터 999999999까지의 정수로 입력해 주세요.',soulsApplied:'소지량을 {n} 소울로 설정했습니다.',soulsNote:'추가 지급이 아니라 소지량을 설정합니다. 게임에 저장되면 프로그램 종료 후에도 유지됩니다.',
+ profileTitle:'게임 / 모드 선택',profile_vanilla:'바닐라',profile_convergence:'컨버전스',profile_cinders:'신더',profile_unknown:'자동 확인 불가',
+ profileInfo:'현재 선택: {name} · 데이터: {version}',detectedProfile:'감지된 게임: {name}',profileWaiting:'게임 연결을 기다립니다.',
+ profileHint:'현재 실행 중인 게임에 맞는 탭을 선택하세요. 게임 모드 설치를 바꾸는 기능은 아닙니다. 탭별 선택 목록을 따로 기억하며, 탭을 바꾸면 제거가 멈춥니다. 확인 후 시작을 다시 누르세요.',
+ profileNamesHint:'기존 몬스터는 원본 모델 이름으로 표시합니다. 모드에서 외형·이름을 바꾸면 실제 모습과 다를 수 있습니다. 확인하지 못한 추가 몬스터 이름은 모델 번호로 표시합니다. 추가 모델 그림은 설치된 모델의 특징을 귀엽게 단순화했으며, 모습이 없는 보조 개체는 기호로 표시합니다. 맵 목록은 각 모드의 배치 데이터를 사용합니다.',
+ modePlacementsModDesc:'선택한 모드의 등록된 맵·모델·배치 식별자가 일치하는 몹만 제거합니다. 다른 버전에서 변경되거나 추가된 몹은 남을 수 있습니다.',
+
  developerCredit:'개발자 HJP',
  sessionNotice:'몹 제거는 이 프로그램을 켜 두고 실행하는 동안에만 적용됩니다. 종료하면 몹 비활성화가 해제됩니다.',
  sessionDetail:'선택한 목록은 기억합니다. 몬스터가 바로 돌아오지 않으면 다른 지역으로 이동했다가 돌아오세요.',
@@ -16,7 +23,7 @@ ko:{
  modeRisk:'기본 게임의 알려진 보스·NPC는 제외합니다. 다만 모드가 선택한 모델을 새 보스·NPC로 재사용하면 종류 전체 제거에서 함께 제거될 수 있습니다. 모드 감지는 완벽하지 않습니다.',
  modNote:'모드 로더 감지 · 종류 전체 제거는 모드가 재사용한 보스·NPC도 제거할 수 있습니다.',
  modWarningTitle:'모드 환경에서 종류 전체 제거',modWarningBody:'모드가 선택한 몬스터 모델을 보스나 NPC로 재사용하면 함께 제거되어 게임 진행에 영향을 줄 수 있습니다. 구분이 불확실하면 취소하고 확인된 배치만 제거를 선택하세요.',
- modWarningScope:'확인은 이번 프로그램 실행 동안만 기억합니다. 새로운 모델 번호를 사용하는 몹은 별도 지원이 필요합니다.',modContinue:'주의사항 확인 · 제거 시작',modCancel:'취소',modeSaving:'방식 저장 중…',
+ modWarningScope:'확인은 이번 프로그램 실행 동안만 기억합니다. 각 모드 탭에는 확인된 추가 모델도 포함되어 있습니다. 다른 버전에서 새로 추가된 모델은 별도 지원이 필요합니다.',modContinue:'주의사항 확인 · 제거 시작',modCancel:'취소',modeSaving:'방식 저장 중…',
  title:'조금 더 편안한 로스릭',subtitle:'선택한 몬스터를 기억하고, 게임에서 제거합니다.',
  quit:'프로그램 종료',language:'언어 / Language',search:'몬스터 이름으로 검색',filter:'몬스터 목록 필터',
  all:'전체 종류',loaded:'현재 로드된 종류',selected:'선택한 종류',maps:'맵별 보기',
@@ -32,6 +39,13 @@ ko:{
  languageSaving:'언어 저장 중…',languageFailed:'언어 저장 실패: {error}',requestFailed:'프로그램과 연결할 수 없습니다. 다시 실행해 주세요.'
 },
 en:{
+ soulsTitle:'Set souls',soulsCurrent:'Current souls',soulsTarget:'New soul balance',soulsApply:'Apply souls',soulsApplying:'Applying…',soulsWaiting:'Available after the game connects and your character finishes loading.',soulsOffline:'Confirm that the game is offline before changing souls.',soulsReady:'Enter your desired balance, then click Apply souls.',soulsRange:'Range: 0–999,999,999',soulsInvalid:'Enter a whole number from 0 to 999999999.',soulsApplied:'Soul balance set to {n}.',soulsNote:'This sets your balance rather than adding souls. Once saved by the game, the change persists after this program closes.',
+ profileTitle:'Game / mod',profile_vanilla:'Vanilla',profile_convergence:'The Convergence',profile_cinders:'Cinders',profile_unknown:'Not identified',
+ profileInfo:'Selected: {name} · Data: {version}',detectedProfile:'Detected game: {name}',profileWaiting:'Waiting for the game connection.',
+ profileHint:'Choose the tab matching your running game. This does not change your installed game mod. Each tab remembers its own selection. Switching tabs pauses removal; click Start again when ready.',
+ profileNamesHint:'Existing enemies use their original model names. A mod may change their appearance or name. Unidentified additional enemies use model IDs. Additional model illustrations simplify the installed models into cute characters; invisible helpers use a symbol. Map lists use each mod’s placement data.',
+ modePlacementsModDesc:'Removes only enemies whose registered map, model and placement ID match the selected mod’s data. Enemies added or changed in another version may remain.',
+
  developerCredit:'Developed by HJP',
  sessionNotice:'Enemy removal applies only while this program is open and removal is running. Exiting releases enemy disabling.',
  sessionDetail:'Your selection is remembered. If enemies do not return immediately, leave the area and return.',

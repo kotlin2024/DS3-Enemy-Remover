@@ -126,6 +126,51 @@ class DesktopHost:
                     if paused['text']!='Start enemy removal' or paused['disabled']:
                         raise RuntimeError('Start button did not reset after pausing.')
                     result.update(start_running=running,start_paused=paused)
+                    # UI/API exercise against an isolated, in-memory character.
+                    # This adapter never opens or writes a real process.
+                    class SoulPreview:
+                        profile={'verified_in_game':False}
+                        game_variant='vanilla'
+                        modded=False
+                        balance=12345
+                        def alive(self):return True
+                        def playable(self):return True
+                        def close(self):pass
+                        def refresh_variant(self,force=False):pass
+                        def snapshot(self):return (0x100000,0x110000,'m40_00_00_00'),[]
+                        def soul_snapshot(self):return (((0x100000,0x110000,'m40_00_00_00'),0x400000,0x410000,0x410074),self.balance)
+                        def set_souls(self,value):self.balance=value;return value
+                    preview=SoulPreview()
+                    with self.controller.lock:
+                        self.controller.memory=preview
+                        self.controller.experimental=False
+                    deadline=time.monotonic()+15
+                    while time.monotonic()<deadline:
+                        soul_ready=self.window.evaluate_js("({ready:state.souls_ready,disabled:document.getElementById('soulsApply').disabled,label:document.querySelector('#soulsPanel h2').textContent})")
+                        if soul_ready['ready']:break
+                        time.sleep(.1)
+                    if not soul_ready['ready'] or not soul_ready['disabled'] or soul_ready['label']!='Set souls':
+                        raise RuntimeError('Soul card did not require offline confirmation.')
+                    self.window.evaluate_js("document.getElementById('soulsOffline').checked=true;document.getElementById('soulsOffline').dispatchEvent(new Event('change'));document.getElementById('soulsValue').value='1e6';document.getElementById('soulsApply').click();void 0")
+                    invalid=self.window.evaluate_js("document.getElementById('soulsStatus').textContent")
+                    if invalid!='Enter a whole number from 0 to 999999999.' or preview.balance!=12345:
+                        raise RuntimeError('Invalid soul input was accepted.')
+                    self.window.evaluate_js("document.getElementById('soulsValue').value='1000000';document.getElementById('soulsApply').click();void 0")
+                    deadline=time.monotonic()+15
+                    while time.monotonic()<deadline:
+                        soul_applied=self.window.evaluate_js("({value:document.getElementById('soulsCurrent').textContent,message:document.getElementById('soulsStatus').textContent,active:state.active,busy:soulsBusy,width:document.getElementById('soulsPanel').getBoundingClientRect().width,position:document.getElementById('soulsPanel').previousElementSibling.contains(document.getElementById('start'))})")
+                        if not soul_applied['busy'] and soul_applied['value']=='1,000,000':break
+                        time.sleep(.1)
+                    if preview.balance!=1000000 or soul_applied['active'] or not soul_applied['position'] or soul_applied['width']<280 or '1,000,000' not in soul_applied['message']:
+                        raise RuntimeError('Soul UI/API apply or panel placement failed.')
+                    with self.controller.lock:
+                        self.controller.memory=None
+                        self.controller.context=None
+                        self.controller.souls_current=None
+                        self.controller.souls_ready=False
+                        self.controller.souls_context=None
+                        self.controller.souls_since=None
+                    result['souls_simulation']=dict(offline_gate=soul_ready,invalid_input=invalid,applied=soul_applied,real_game_written=False)
                     self.window.evaluate_js("document.getElementById('search').value='Sewer Centipede';document.getElementById('search').dispatchEvent(new Event('input'));void 0")
                     match=self.window.evaluate_js("document.querySelector('#grid h3')?.textContent")
                     if match!='Sewer Centipede':
@@ -139,6 +184,50 @@ class DesktopHost:
                     if korean['lang']!='ko' or korean['start']!='몹 제거 시작':
                         raise RuntimeError('Korean language switch did not render.')
                     result.update(english=english,english_search=match,korean=korean)
+                    tabs=[]
+                    for variant, model in [('convergence','c1103'),('cinders','c7610'),('vanilla','c2140')]:
+                        self.window.evaluate_js(f"document.querySelector('[data-variant={variant}]').click();void 0")
+                        deadline=time.monotonic()+15
+                        while time.monotonic()<deadline:
+                            tab=self.window.evaluate_js("({variant:state.game_variant,ready:!variantBusy,active:state.active,tabCount:document.querySelectorAll('#profileTabs button').length})")
+                            if tab['variant']==variant and tab['ready']:break
+                            time.sleep(0.1)
+                        if tab['variant']!=variant or tab['active'] or tab['tabCount']!=3:
+                            raise RuntimeError('Game tabs did not switch and pause.')
+                        self.window.evaluate_js(f"document.getElementById('search').value='{model}';document.getElementById('search').dispatchEvent(new Event('input'));void 0")
+                        card=self.window.evaluate_js(f"({{present:!!document.querySelector('[data-id={model}]'),enabled:!document.querySelector('[data-id={model}]')?.disabled}})")
+                        if not card['present'] or not card['enabled']:
+                            raise RuntimeError('Mod enemy card not selectable.')
+                        self.window.evaluate_js(f"document.querySelector('[data-id={model}]').click();void 0")
+                        deadline=time.monotonic()+15
+                        while time.monotonic()<deadline:
+                            saved=self.window.evaluate_js(f"({{selected:selected.has('{model}'),saving:saveStatusKey==='saving'}})")
+                            if saved['selected'] and not saved['saving']:break
+                            time.sleep(0.1)
+                        if not saved['selected'] or saved['saving']:raise RuntimeError('Tab selection did not save.')
+                        artwork=None
+                        if variant!='vanilla':
+                            self.window.evaluate_js(f"window.__modArt=new Image();window.__modArt.src='/assets/mascots_{variant}.png';void 0")
+                            deadline=time.monotonic()+10
+                            while time.monotonic()<deadline:
+                                artwork=self.window.evaluate_js("({width:window.__modArt.naturalWidth,height:window.__modArt.naturalHeight,background:getComputedStyle(document.querySelector('#grid .sprite')).backgroundImage,size:getComputedStyle(document.querySelector('#grid .sprite')).backgroundSize,placeholder:!!document.querySelector('#grid .placeholder')})")
+                                if artwork and artwork['width']>0:break
+                                time.sleep(0.1)
+                            rows=7 if variant=='convergence' else 6
+                            if not artwork or artwork['width']*rows!=artwork['height']*4 or variant not in artwork['background'] or artwork['size']!=f'400% {rows*100}%' or artwork['placeholder']:
+                                raise RuntimeError('Additional enemy artwork did not load or map correctly.')
+                        tabs.append(dict(variant=variant,card=card,selection=saved,artwork=artwork))
+                    stored=json.loads((self.home/'selection.json').read_text('utf-8'))['selections']
+                    if stored['convergence']!=['c1103'] or stored['cinders']!=['c7610'] or stored['vanilla']!=['c2140']:
+                        raise RuntimeError('Tab selections were not stored independently.')
+                    result['game_tabs']=tabs
+                    from mod_detection import modengine2_variant
+                    loader_config=self.home/'loader-smoke.toml'
+                    loader_config.write_text('[extension.mod_loader]\nmods=[{enabled=true,name="Cinders",path="Cinders"},{enabled=false,name="Convergence",path="The Convergence"}]\n',encoding='utf-8')
+                    if modengine2_variant(loader_config)!='cinders':
+                        raise RuntimeError('Packaged Mod Engine 2 config detection failed.')
+                    result['modengine2_config']='cinders'
+
                     if self.window.native.Icon is None:
                         raise RuntimeError('Native window icon was not loaded.')
                     result.update(renderer=winforms.renderer,native_window=True,icon_loaded=True)
