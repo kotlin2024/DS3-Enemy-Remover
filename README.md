@@ -4,6 +4,17 @@ Developed by **HJP**. Nexus Mods username: **UNITYDEVELOPER**.
 
 [Nexus Mods page](https://www.nexusmods.com/darksouls3/mods/2391)
 
+## Download / 다운로드
+
+[**Latest release / 최신 릴리스 바로가기**](https://github.com/kotlin2024/DS3-Enemy-Remover/releases/latest)
+
+- [Download EXE / EXE 바로 다운로드](https://github.com/kotlin2024/DS3-Enemy-Remover/releases/latest/download/DS3-Enemy-Trainer.exe)
+- [Download v0.3.4 ZIP with instructions / 사용 안내 포함 ZIP 다운로드](https://github.com/kotlin2024/DS3-Enemy-Remover/releases/download/v0.3.4/DS3-Enemy-Trainer-0.3.4-desktop-Windows.zip)
+
+Download the EXE to run the application; building from source is optional. ZIP includes Korean/English instructions and notices.
+
+프로그램 사용자는 EXE를 내려받아 실행하면 됩니다. ZIP에는 한글·영어 사용 안내가 포함되어 있습니다.
+
 Source for application version **0.3.4**.
 
 A Windows desktop trainer for Dark Souls III, with separate Vanilla, Convergence and Cinders tabs and a one-time soul balance control. Select ordinary enemy types using illustrated cards, search by Korean/English name or model ID, browse area lists, and switch between Korean and English. Selections, language and removal mode are saved locally. Additional selections apply while removal is running.
